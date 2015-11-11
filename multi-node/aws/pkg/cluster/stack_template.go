@@ -49,6 +49,9 @@ var (
 	supportedChannels    = []string{"alpha", "beta"}
 	tagKubernetesCluster = "KubernetesCluster"
 
+	vpcCidr = "10.0.0.0/16"
+	podCidr = "10.2.0.0/16"
+
 	sgProtoTCP = "tcp"
 	sgProtoUDP = "udp"
 
@@ -253,6 +256,7 @@ func StackTemplateBody(defaultArtifactURL string) (string, error) {
 			},
 			"SecurityGroupIngress": []map[string]interface{}{
 				map[string]interface{}{"IpProtocol": sgProtoTCP, "FromPort": 22, "ToPort": 22, "CidrIp": sgAllIPs},
+				map[string]interface{}{"IpProtocol": "-1", "FromPort": 0, "ToPort": sgPortMax, "CidrIp": podCidr},
 			},
 			"Tags": []map[string]interface{}{
 				newTag(tagKubernetesCluster, newRef(parClusterName)),
