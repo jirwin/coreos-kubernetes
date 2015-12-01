@@ -81,7 +81,6 @@ ExecStart=/usr/bin/kubelet \
   --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
   --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
   --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-  --cadvisor-port=0 \
   --cloud-provider=aws \
   --configure-cbr0=true
 Restart=always

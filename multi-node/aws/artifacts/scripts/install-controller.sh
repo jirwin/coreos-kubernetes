@@ -82,7 +82,6 @@ ExecStart=/usr/bin/kubelet \
   --config=/etc/kubernetes/manifests \
   --cluster_dns=${DNS_SERVICE_IP} \
   --cluster_domain=cluster.local \
-  --cadvisor-port=0 \
   --cloud-provider=aws
 Restart=always
 RestartSec=10
