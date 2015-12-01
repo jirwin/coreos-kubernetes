@@ -49,6 +49,9 @@ var (
 	supportedChannels    = []string{"alpha", "beta"}
 	tagKubernetesCluster = "KubernetesCluster"
 
+	vpcCidr = "10.0.0.0/16"
+	podCidr = "10.2.0.0/16"
+
 	sgProtoTCP = "tcp"
 	sgProtoUDP = "udp"
 
@@ -253,32 +256,23 @@ func StackTemplateBody(defaultArtifactURL string) (string, error) {
 			},
 			"SecurityGroupIngress": []map[string]interface{}{
 				map[string]interface{}{"IpProtocol": sgProtoTCP, "FromPort": 22, "ToPort": 22, "CidrIp": sgAllIPs},
+				map[string]interface{}{"IpProtocol": "-1", "FromPort": 0, "ToPort": sgPortMax, "CidrIp": podCidr},
 			},
 			"Tags": []map[string]interface{}{
 				newTag(tagKubernetesCluster, newRef(parClusterName)),
 			},
 		},
 	}
-	res[resNameSecurityGroupWorker+"IngressFromWorkerToFlannel"] = map[string]interface{}{
-		"Type": "AWS::EC2::SecurityGroupIngress",
-		"Properties": map[string]interface{}{
-			"GroupId":               newRef(resNameSecurityGroupWorker),
-			"SourceSecurityGroupId": newRef(resNameSecurityGroupWorker),
-			"FromPort":              8285,
-			"ToPort":                8285,
-			"IpProtocol":            sgProtoUDP,
-		},
-	}
-	res[resNameSecurityGroupWorker+"IngressFromControllerToFlannel"] = map[string]interface{}{
-		"Type": "AWS::EC2::SecurityGroupIngress",
-		"Properties": map[string]interface{}{
-			"GroupId":               newRef(resNameSecurityGroupWorker),
-			"SourceSecurityGroupId": newRef(resNameSecurityGroupController),
-			"FromPort":              8285,
-			"ToPort":                8285,
-			"IpProtocol":            sgProtoUDP,
-		},
-	}
+        res[resNameSecurityGroupWorker+"IngressFromControllerTocAdvisor"] = map[string]interface{}{
+                "Type": "AWS::EC2::SecurityGroupIngress",
+                "Properties": map[string]interface{}{
+                        "GroupId":               newRef(resNameSecurityGroupWorker),
+                        "SourceSecurityGroupId": newRef(resNameSecurityGroupController),
+                        "FromPort":              4194,
+                        "ToPort":                4194,
+                        "IpProtocol":            sgProtoTCP,
+                },
+        }
 	res[resNameSecurityGroupWorker+"IngressFromControllerToKubelet"] = map[string]interface{}{
 		"Type": "AWS::EC2::SecurityGroupIngress",
 		"Properties": map[string]interface{}{

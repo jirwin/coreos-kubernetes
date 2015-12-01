@@ -12,6 +12,15 @@ export CONTROLLER_ENDPOINT=
 # Specify the version (vX.Y.Z) of Kubernetes assets to deploy
 export K8S_VER=v1.1.2
 
+# The address of the AWS provided DNS server in the cluster subnet.  It is the .2 address in 
+# whatever CIDR was assigned to the cluster subnet.
+export AWS_DNS=10.0.0.2
+
+# The CIDR network to use for pod IPs.
+# Each pod launched in the cluster will be assigned an IP out of this range.
+# Each node will be configured such that these IPs will be routable using the Kubernetes AWS cloud provider.
+export POD_NETWORK=10.2.0.0/16
+
 # The IP address of the cluster DNS service.
 # This must be the same DNS_SERVICE_IP used when configuring the controller nodes.
 export DNS_SERVICE_IP=10.3.0.10
@@ -53,23 +62,6 @@ function init_config {
 	done
 }
 
-function init_docker {
-	local TEMPLATE=/etc/systemd/system/docker.service.d/40-flannel.conf
-	[ -f $TEMPLATE ] || {
-		echo "TEMPLATE: $TEMPLATE"
-		mkdir -p $(dirname $TEMPLATE)
-		cat << EOF > $TEMPLATE
-[Unit]
-Requires=flanneld.service
-After=flanneld.service
-EOF
-	}
-
-	# reload now before docker commands are run in later
-	# init steps or dockerd will start before flanneld
-	systemctl daemon-reload
-}
-
 function init_templates {
 	local TEMPLATE=/etc/systemd/system/kubelet.service
 	[ -f $TEMPLATE ] || {
@@ -78,6 +70,7 @@ function init_templates {
 		cat << EOF > $TEMPLATE
 [Service]
 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
+ExecStartPre=/usr/sbin/iptables -t nat -A POSTROUTING -s ${POD_NETWORK} -d ${AWS_DNS}/32 -j MASQUERADE
 ExecStart=/usr/bin/kubelet \
   --api_servers=${CONTROLLER_ENDPOINT} \
   --register-node=true \
@@ -88,7 +81,8 @@ ExecStart=/usr/bin/kubelet \
   --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
   --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
   --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem \
-  --cadvisor-port=0
+  --cloud-provider=aws \
+  --configure-cbr0=true
 Restart=always
 RestartSec=10
 [Install]
@@ -99,22 +93,10 @@ EOF
 	mkdir -p /etc/kubernetes/manifests
 	template manifests/worker/kubeconfig /etc/kubernetes/worker-kubeconfig.yaml
 	template manifests/worker/kube-proxy.yaml /etc/kubernetes/manifests/kube-proxy.yaml
-
-	local TEMPLATE=/run/flannel/options.env
-	[ -f $TEMPLATE ] || {
-		echo "TEMPLATE: $TEMPLATE"
-		mkdir -p $(dirname $TEMPLATE)
-		cat << EOF > $TEMPLATE
-FLANNELD_IFACE=$ADVERTISE_IP
-FLANNELD_ETCD_ENDPOINTS=$ETCD_ENDPOINTS
-EOF
-	}
-
 }
 
 init_config
 init_templates
-init_docker
 
 systemctl daemon-reload
 systemctl stop update-engine; systemctl mask update-engine
